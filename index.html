@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCORM Submission Desk — Applied Instructional Design</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E9EDF1;
+    --surface:#FFFFFF;
+    --ink:#101A24;
+    --ink-soft:#4C5A68;
+    --line:#CBD4DC;
+    --accent:#2B4FD8;
+    --accent-ink:#1B34A0;
+    --ok:#1F7A4D;
+    --warn:#B4530A;
+    --stamp:#C03B2D;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    font-size:15px;
+    line-height:1.5;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+
+  /* ---------- header ---------- */
+  header.desk{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;
+    border-bottom:3px solid var(--ink);
+    padding-bottom:16px;margin-bottom:26px;
+  }
+  .desk h1{
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-weight:800;font-size:clamp(24px,3.4vw,34px);
+    letter-spacing:-0.5px;
+  }
+  .desk h1 span{color:var(--accent)}
+  .desk .module{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;
+    color:var(--ink-soft);text-transform:uppercase;letter-spacing:1px;
+  }
+
+  /* ---------- layout ---------- */
+  .grid{display:grid;grid-template-columns:400px 1fr;gap:24px;align-items:start}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+  /* ---------- intake form ---------- */
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px;
+  }
+  .panel h2{
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-size:18px;font-weight:700;margin-bottom:4px;
+  }
+  .panel p.hint{color:var(--ink-soft);font-size:13px;margin-bottom:18px}
+  .field{margin-bottom:14px}
+  .field label{
+    display:block;font-size:12px;font-weight:600;
+    text-transform:uppercase;letter-spacing:0.6px;
+    color:var(--ink-soft);margin-bottom:5px;
+  }
+  .field input[type=text]{
+    width:100%;padding:10px 12px;font:inherit;
+    border:1px solid var(--line);border-radius:6px;background:#FBFCFD;
+  }
+  .field input[type=text]:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+  .field input.invalid{border-color:var(--stamp);background:#FDF3F1}
+
+  .dropzone{
+    border:2px dashed var(--line);border-radius:8px;
+    padding:22px 14px;text-align:center;cursor:pointer;
+    background:#FBFCFD;transition:border-color .15s,background .15s;
+  }
+  .dropzone:hover,.dropzone:focus-visible{border-color:var(--accent);background:#F3F6FE;outline:none}
+  .dropzone.hasfile{border-style:solid;border-color:var(--ok);background:#F1F8F4}
+  .dropzone strong{display:block;font-size:14px}
+  .dropzone small{color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;font-size:11px}
+  #fileInput{display:none}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    font:inherit;font-weight:600;cursor:pointer;
+    border-radius:7px;padding:11px 18px;border:1px solid transparent;
+  }
+  .btn:focus-visible{outline:3px solid var(--accent-ink);outline-offset:2px}
+  .btn-primary{background:var(--accent);color:#fff;width:100%;margin-top:6px;font-size:15px}
+  .btn-primary:hover{background:var(--accent-ink)}
+  .btn-primary:disabled{background:#9AA7B4;cursor:not-allowed}
+  .btn-ghost{background:transparent;border-color:var(--line);color:var(--ink);font-size:13px;padding:7px 12px}
+  .btn-ghost:hover{border-color:var(--ink)}
+  .formError{color:var(--stamp);font-size:13px;margin-top:10px;display:none}
+
+  /* ---------- record cards (signature element) ---------- */
+  .rosterHead{
+    display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;
+  }
+  .rosterHead h2{font-family:'Bricolage Grotesque',sans-serif;font-size:18px;font-weight:700}
+  .rosterHead .count{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft)}
+  .roster{display:flex;flex-direction:column;gap:14px}
+  .rosterEmpty{
+    border:1px dashed var(--line);border-radius:var(--radius);
+    padding:34px 20px;text-align:center;color:var(--ink-soft);font-size:14px;
+    background:rgba(255,255,255,.5);
+  }
+
+  .card{
+    position:relative;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px 16px 34px;
+    display:grid;grid-template-columns:1fr auto;gap:6px 16px;align-items:center;
+  }
+  /* perforated punch-card edge */
+  .card::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:20px;
+    border-right:1px dashed var(--line);
+    background:
+      radial-gradient(circle at 10px 18px, var(--bg) 4px, transparent 5px),
+      radial-gradient(circle at 10px 50%, var(--bg) 4px, transparent 5px),
+      radial-gradient(circle at 10px calc(100% - 18px), var(--bg) 4px, transparent 5px);
+    border-radius:var(--radius) 0 0 var(--radius);
+  }
+  .card.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(43,79,216,.18)}
+  .card .who{font-weight:600;font-size:16px}
+  .card .topic{color:var(--ink-soft);font-size:14px}
+  .card .stamp{
+    grid-row:1/3;
+    font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
+    color:var(--stamp);border:1.5px solid var(--stamp);border-radius:4px;
+    padding:3px 8px;transform:rotate(-2deg);white-space:nowrap;
+    align-self:start;
+  }
+  .card .meta{
+    grid-column:1/3;display:flex;gap:14px;flex-wrap:wrap;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-soft);
+    border-top:1px dashed var(--line);padding-top:8px;margin-top:4px;
+  }
+  .card .meta b{color:var(--ink);font-weight:600}
+  .card .actions{grid-column:1/3;display:flex;gap:8px;margin-top:8px}
+
+  /* ---------- player ---------- */
+  .playerWrap{margin-top:26px;display:none}
+  .playerBar{
+    background:var(--ink);color:#fff;border-radius:var(--radius) var(--radius) 0 0;
+    padding:12px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .playerBar .pname{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:16px}
+  .playerBar .pnum{font-family:'IBM Plex Mono',monospace;font-size:12px;opacity:.75}
+  .playerBar .spacer{flex:1}
+  .playerBody{display:grid;grid-template-columns:1fr 280px;border:1px solid var(--line);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;background:var(--surface)}
+  @media (max-width:900px){.playerBody{grid-template-columns:1fr}}
+  #scormFrame{width:100%;height:640px;border:none;background:#fff;display:block}
+
+  /* ---------- scoreboard ---------- */
+  .board{
+    border-left:1px solid var(--line);background:#F5F7F9;padding:16px;
+    display:flex;flex-direction:column;gap:10px;
+  }
+  @media (max-width:900px){.board{border-left:none;border-top:1px solid var(--line)}}
+  .board h3{
+    font-family:'Bricolage Grotesque',sans-serif;font-size:15px;font-weight:700;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .board .live{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ok);text-transform:uppercase;letter-spacing:1px}
+  .stat{
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+  }
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-soft)}
+  .stat .v{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600}
+  .stat .v.ok{color:var(--ok)} .stat .v.warn{color:var(--warn)} .stat .v.bad{color:var(--stamp)}
+  .board .note{font-size:11.5px;color:var(--ink-soft)}
+  .boardLog{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink-soft);
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;max-height:120px;overflow:auto;white-space:pre-wrap;
+  }
+
+  .status{
+    margin-top:14px;font-size:13px;font-family:'IBM Plex Mono',monospace;
+    color:var(--ink-soft);display:none;
+  }
+  .status.err{color:var(--stamp)}
+  @media (prefers-reduced-motion:no-preference){
+    .card{animation:drop .25s ease}
+    @keyframes drop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="desk">
+    <h1>SCORM <span>Submission Desk</span></h1>
+    <div class="module">Applied Instructional Design · Student Course Uploads</div>
+  </header>
+
+  <div class="grid">
+    <!-- ============ intake ============ -->
+    <section class="panel" aria-labelledby="formTitle">
+      <h2 id="formTitle">Register your submission</h2>
+      <p class="hint">Fill in your details, then upload your course as a SCORM .zip package. It will run right here in the browser — results are kept in memory only.</p>
+
+      <div class="field">
+        <label for="fName">Name</label>
+        <input type="text" id="fName" autocomplete="given-name" placeholder="e.g. Thandi">
+      </div>
+      <div class="field">
+        <label for="fSurname">Surname</label>
+        <input type="text" id="fSurname" autocomplete="family-name" placeholder="e.g. Mokoena">
+      </div>
+      <div class="field">
+        <label for="fNumber">Student number</label>
+        <input type="text" id="fNumber" placeholder="e.g. 22045871">
+      </div>
+      <div class="field">
+        <label for="fTopic">Course topic</label>
+        <input type="text" id="fTopic" placeholder="e.g. Basic fire safety in the workplace">
+      </div>
+
+      <div class="field">
+        <label for="fileInput">SCORM package (.zip)</label>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload SCORM zip package">
+          <strong id="dzText">Click or drop your .zip here</strong>
+          <small id="dzMeta">SCORM 1.2 or SCORM 2004 · exported as a zip</small>
+        </div>
+        <input type="file" id="fileInput" accept=".zip,application/zip,application/x-zip-compressed">
+      </div>
+
+      <button class="btn btn-primary" id="submitBtn">Add submission &amp; launch course</button>
+      <div class="formError" id="formError"></div>
+      <div class="status" id="status"></div>
+    </section>
+
+    <!-- ============ roster ============ -->
+    <section aria-labelledby="rosterTitle">
+      <div class="rosterHead">
+        <h2 id="rosterTitle">Submitted courses</h2>
+        <span class="count" id="rosterCount">0 on record</span>
+      </div>
+      <div class="rosterEmpty" id="rosterEmpty">
+        No submissions yet. The first registered course will appear here as a record card.
+      </div>
+      <div class="roster" id="roster"></div>
+    </section>
+  </div>
+
+  <!-- ============ player ============ -->
+  <section class="playerWrap" id="playerWrap" aria-label="Course player">
+    <div class="playerBar">
+      <span class="pname" id="pName">—</span>
+      <span class="pnum" id="pNum"></span>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost" id="popoutBtn" style="color:#fff;border-color:#5b6b7c">Open scoreboard window</button>
+      <button class="btn btn-ghost" id="closeBtn" style="color:#fff;border-color:#5b6b7c">Close course</button>
+    </div>
+    <div class="playerBody">
+      <iframe id="scormFrame" title="Student SCORM course"></iframe>
+      <aside class="board" aria-label="Scoreboard">
+        <h3>Scoreboard <span class="live" id="liveDot">● live</span></h3>
+        <div class="stat"><div class="k">Completion status</div><div class="v" id="sbStatus">not attempted</div></div>
+        <div class="stat"><div class="k">Success</div><div class="v" id="sbSuccess">unknown</div></div>
+        <div class="stat"><div class="k">Score</div><div class="v" id="sbScore">—</div></div>
+        <div class="stat"><div class="k">Time in course</div><div class="v" id="sbTime">00:00</div></div>
+        <div class="boardLog" id="sbLog">Waiting for the course to talk to the LMS…</div>
+        <div class="note">Results live in this page's memory only. Refreshing the page clears everything.</div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   SCORM Submission Desk
+   - Students register details + upload a SCORM .zip
+   - The zip is unpacked in the browser (JSZip) into blob: URLs
+   - A SCORM 1.2 + SCORM 2004 API shim on this window catches all
+     LMS traffic and mirrors it onto the scoreboard (memory only)
+   ===================================================================== */
+
+(function(){
+"use strict";
+
+/* ---------------- state (memory only) ---------------- */
+const submissions = [];          // {id, name, surname, number, topic, fileName, files, launch, data, log}
+let activeId = null;
+let popup = null;
+let clockTimer = null;
+
+/* ---------------- helpers ---------------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const MIME = {html:'text/html',htm:'text/html',js:'text/javascript',mjs:'text/javascript',
+  css:'text/css',json:'application/json',xml:'application/xml',txt:'text/plain',
+  png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',svg:'image/svg+xml',
+  webp:'image/webp',ico:'image/x-icon',mp3:'audio/mpeg',ogg:'audio/ogg',wav:'audio/wav',
+  mp4:'video/mp4',webm:'video/webm',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',
+  otf:'font/otf',eot:'application/vnd.ms-fontobject',pdf:'application/pdf',vtt:'text/vtt',
+  swf:'application/x-shockwave-flash'};
+const mimeOf = p => MIME[(p.split('.').pop()||'').toLowerCase()] || 'application/octet-stream';
+
+function normPath(p){
+  const parts = p.replace(/\\/g,'/').split('/');
+  const out = [];
+  for(const part of parts){
+    if(part==='' || part==='.') continue;
+    if(part==='..') out.pop(); else out.push(part);
+  }
+  return out.join('/');
+}
+function resolveRel(url, baseDir){
+  const clean = url.split('#')[0].split('?')[0];
+  if(/^(https?:|data:|blob:|javascript:|mailto:|#)/i.test(url)) return null;
+  return normPath((clean.startsWith('/') ? clean.slice(1) : baseDir + clean));
+}
+
+/* ---------------- SCORM zip loading ---------------- */
+async function loadPackage(file){
+  const zip = await JSZip.loadAsync(file);
+
+  // Some zips wrap everything in a single root folder; detect common prefix
+  let names = Object.keys(zip.files).filter(n => !zip.files[n].dir);
+  if(!names.length) throw new Error('The zip file is empty.');
+
+  // find manifest
+  let manifestName = names.find(n => n.toLowerCase().endsWith('imsmanifest.xml'));
+  let prefix = '';
+  if(manifestName){
+    prefix = manifestName.slice(0, manifestName.toLowerCase().lastIndexOf('imsmanifest.xml'));
+  }
+
+  // determine launch href
+  let launchHref = null;
+  if(manifestName){
+    const xmlText = await zip.files[manifestName].async('text');
+    const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+    const resources = Array.from(doc.getElementsByTagName('resource'));
+    // prefer the resource referenced by the first <item identifierref>
+    const item = Array.from(doc.getElementsByTagName('item')).find(i => i.getAttribute('identifierref'));
+    if(item){
+      const ref = item.getAttribute('identifierref');
+      const r = resources.find(r => r.getAttribute('identifier') === ref);
+      if(r) launchHref = r.getAttribute('href');
+    }
+    if(!launchHref){
+      const sco = resources.find(r => (r.getAttribute('adlcp:scormtype')||r.getAttribute('adlcp:scormType')||'').toLowerCase()==='sco') || resources[0];
+      if(sco) launchHref = sco.getAttribute('href');
+    }
+  }
+  if(!launchHref){
+    // fallback: common launch file names
+    const guess = names.map(n => n.slice(prefix.length))
+      .find(n => /(^|\/)(index|story|launch|start|default|player|scormdriver\/indexAPI)\.html?$/i.test(n));
+    if(guess) launchHref = guess;
+  }
+  if(!launchHref) throw new Error('Could not find a launch file (no imsmanifest.xml or index.html in the zip).');
+  launchHref = normPath(launchHref);
+
+  // ---- pass 1: binary + plain assets -> blob URLs
+  const fileMap = {};   // normalized relative path -> blob URL
+  const textCache = {}; // path -> text (for css/html rewriting)
+  for(const n of names){
+    const rel = normPath(n.slice(prefix.length));
+    if(!rel) continue;
+    const ext = (rel.split('.').pop()||'').toLowerCase();
+    if(ext==='css' || rel===launchHref){ // handled in later passes
+      textCache[rel] = await zip.files[n].async('text');
+      continue;
+    }
+    const blob = new Blob([await zip.files[n].async('arraybuffer')], {type: mimeOf(rel)});
+    fileMap[rel] = URL.createObjectURL(blob);
+  }
+
+  // ---- pass 2: CSS files, with url(...) rewritten to blobs
+  for(const rel of Object.keys(textCache)){
+    if(!rel.toLowerCase().endsWith('.css')) continue;
+    const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')+1) : '';
+    const css = textCache[rel].replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, (m,q,u)=>{
+      const p = resolveRel(u.trim(), dir);
+      return (p && fileMap[p]) ? `url("${fileMap[p]}")` : m;
+    });
+    fileMap[rel] = URL.createObjectURL(new Blob([css], {type:'text/css'}));
+  }
+
+  // ---- pass 3: launch HTML — rewrite static refs + inject runtime patch
+  const launchDir = launchHref.includes('/') ? launchHref.slice(0, launchHref.lastIndexOf('/')+1) : '';
+  let html = textCache[launchHref];
+  if(html === undefined) throw new Error('Launch file "'+launchHref+'" was not found inside the zip.');
+
+  const patch = buildRuntimePatch(launchDir);
+  if(/<head[^>]*>/i.test(html)) html = html.replace(/<head[^>]*>/i, m => m + patch);
+  else html = patch + html;
+
+  // rewrite static src/href/poster/data attributes
+  html = html.replace(/(src|href|poster|data)\s*=\s*(['"])([^'"]+)\2/gi, (m,attr,q,u)=>{
+    const p = resolveRel(u, launchDir);
+    return (p && fileMap[p]) ? `${attr}=${q}${fileMap[p]}${q}` : m;
+  });
+  // rewrite inline style url()
+  html = html.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, (m,q,u)=>{
+    const p = resolveRel(u.trim(), launchDir);
+    return (p && fileMap[p]) ? `url("${fileMap[p]}")` : m;
+  });
+
+  const launchURL = URL.createObjectURL(new Blob([html], {type:'text/html'}));
+  return {files: fileMap, launch: launchURL, launchHref};
+}
+
+/* Runtime patch injected into the course: maps fetch/XHR/dynamic src
+   requests for relative paths onto the blob URL map on the parent. */
+function buildRuntimePatch(baseDir){
+  return `<script>(function(){
+    try{
+      var MAP = window.parent.__SCORM_FILE_MAP__ || {};
+      var BASE = ${JSON.stringify(baseDir)};
+      function norm(p){var a=p.replace(/\\\\/g,'/').split('/'),o=[];for(var i=0;i<a.length;i++){var s=a[i];if(s===''||s==='.')continue;if(s==='..')o.pop();else o.push(s);}return o.join('/');}
+      function map(u){
+        if(typeof u!=='string') return u;
+        if(/^(https?:|data:|blob:|javascript:|mailto:|#)/i.test(u)) return u;
+        var clean=u.split('#')[0].split('?')[0];
+        var p=norm(clean.charAt(0)==='/'?clean.slice(1):BASE+clean);
+        return MAP[p]||u;
+      }
+      window.__mapURL__=map;
+      var of_=window.fetch; if(of_) window.fetch=function(i,o){ if(typeof i==='string') i=map(i); else if(i&&i.url){try{i=new Request(map(i.url),i);}catch(e){}} return of_.call(this,i,o); };
+      var oo=XMLHttpRequest.prototype.open; XMLHttpRequest.prototype.open=function(m,u){ arguments[1]=map(u); return oo.apply(this,arguments); };
+      function hook(proto,attr){ var d=Object.getOwnPropertyDescriptor(proto,attr); if(!d||!d.set)return;
+        Object.defineProperty(proto,attr,{get:d.get,set:function(v){d.set.call(this,map(v));},configurable:true}); }
+      hook(HTMLScriptElement.prototype,'src'); hook(HTMLImageElement.prototype,'src');
+      hook(HTMLMediaElement.prototype,'src'); hook(HTMLSourceElement.prototype,'src');
+      hook(HTMLLinkElement.prototype,'href'); hook(HTMLIFrameElement.prototype,'src');
+      hook(HTMLTrackElement.prototype,'src'); hook(HTMLEmbedElement.prototype,'src');
+      var osa=Element.prototype.setAttribute; Element.prototype.setAttribute=function(n,v){
+        if(/^(src|href|poster|data)$/i.test(n)) v=map(v); return osa.call(this,n,v); };
+      var Aud=window.Audio; if(Aud){ window.Audio=function(s){ return s!==undefined?new Aud(map(s)):new Aud(); }; window.Audio.prototype=Aud.prototype; }
+    }catch(e){ console.warn('SCORM shim patch error', e); }
+  })();<\/script>`;
+}
+
+/* ---------------- SCORM API shim (1.2 + 2004) ---------------- */
+function freshData(){
+  return {
+    status:'not attempted', success:'unknown',
+    scoreRaw:null, scoreMax:null, scoreMin:null, scoreScaled:null,
+    location:'', suspend:'', startedAt:null, values:{}
+  };
+}
+function currentSub(){ return submissions.find(s => s.id === activeId) || null; }
+
+function logLine(msg){
+  const s = currentSub(); if(!s) return;
+  const t = new Date().toTimeString().slice(0,8);
+  s.log.push('['+t+'] '+msg);
+  if(s.log.length > 200) s.log.shift();
+  const el = $('sbLog');
+  el.textContent = s.log.slice(-40).join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+function applySet(key, val){
+  const s = currentSub(); if(!s) return;
+  const d = s.data; d.values[key] = val;
+  switch(key){
+    case 'cmi.core.lesson_status': d.status = val;
+      if(['passed','failed'].includes(val)) d.success = val==='passed'?'passed':'failed'; break;
+    case 'cmi.completion_status': d.status = val; break;
+    case 'cmi.success_status': d.success = val; break;
+    case 'cmi.core.score.raw': case 'cmi.score.raw': d.scoreRaw = val; break;
+    case 'cmi.core.score.max': case 'cmi.score.max': d.scoreMax = val; break;
+    case 'cmi.core.score.min': case 'cmi.score.min': d.scoreMin = val; break;
+    case 'cmi.score.scaled': d.scoreScaled = val; break;
+    case 'cmi.core.lesson_location': case 'cmi.location': d.location = val; break;
+    case 'cmi.suspend_data': d.suspend = val; break;
+  }
+  logLine('SET '+key+' = '+String(val).slice(0,60));
+  renderBoard();
+}
+function applyGet(key){
+  const s = currentSub(); if(!s) return '';
+  const d = s.data;
+  const builtins = {
+    'cmi.core.student_name': s.surname+', '+s.name,
+    'cmi.learner_name':      s.surname+', '+s.name,
+    'cmi.core.student_id':   s.number,
+    'cmi.learner_id':        s.number,
+    'cmi.core.lesson_status': d.status==='not attempted'?'not attempted':d.status,
+    'cmi.completion_status':  d.status==='not attempted'?'unknown':d.status,
+    'cmi.success_status':     d.success,
+    'cmi.core.lesson_location': d.location,
+    'cmi.location':             d.location,
+    'cmi.suspend_data':         d.suspend,
+    'cmi.core.lesson_mode':'normal','cmi.mode':'normal',
+    'cmi.entry':'ab-initio','cmi.core.entry':'ab-initio',
+    'cmi.credit':'credit','cmi.core.credit':'credit',
+    'cmi._version':'1.0'
+  };
+  if(key in d.values) return d.values[key];
+  if(key in builtins) return builtins[key];
+  if(/_count$/.test(key)) return '0';
+  if(/_children$/.test(key)) return '';
+  return '';
+}
+
+let lastError = '0';
+function makeAPI(is2004){
+  const yes = 'true', p = is2004 ? '' : 'LMS';
+  const api = {};
+  api[is2004?'Initialize':'LMSInitialize'] = function(){
+    const s = currentSub();
+    if(s && !s.data.startedAt) s.data.startedAt = Date.now();
+    logLine((is2004?'Initialize':'LMSInitialize')+' — course connected ('+(is2004?'SCORM 2004':'SCORM 1.2')+')');
+    if(s && s.data.status==='not attempted'){ s.data.status='incomplete'; renderBoard(); }
+    lastError='0'; return yes;
+  };
+  api[is2004?'Terminate':'LMSFinish'] = function(){ logLine(is2004?'Terminate':'LMSFinish'); lastError='0'; return yes; };
+  api[is2004?'GetValue':'LMSGetValue'] = function(k){ lastError='0'; const v = applyGet(String(k)); return v==null?'':String(v); };
+  api[is2004?'SetValue':'LMSSetValue'] = function(k,v){ lastError='0'; applySet(String(k), String(v)); return yes; };
+  api[is2004?'Commit':'LMSCommit'] = function(){ logLine('Commit — results held in memory'); lastError='0'; return yes; };
+  api[p+'GetLastError'] = function(){ return lastError; };
+  api[p+'GetErrorString'] = function(){ return 'No error'; };
+  api[p+'GetDiagnostic'] = function(){ return ''; };
+  return api;
+}
+window.API = makeAPI(false);         // SCORM 1.2
+window.API_1484_11 = makeAPI(true);  // SCORM 2004
+
+/* ---------------- scoreboard rendering ---------------- */
+function fmtScore(d){
+  if(d.scoreScaled!=null && d.scoreRaw==null) return Math.round(parseFloat(d.scoreScaled)*100)+'%';
+  if(d.scoreRaw==null) return '—';
+  return d.scoreMax!=null ? d.scoreRaw+' / '+d.scoreMax : String(d.scoreRaw);
+}
+function fmtTime(d){
+  if(!d.startedAt) return '00:00';
+  const sec = Math.floor((Date.now()-d.startedAt)/1000);
+  const m = String(Math.floor(sec/60)).padStart(2,'0'), s = String(sec%60).padStart(2,'0');
+  return m+':'+s;
+}
+function statusClass(v){
+  if(['completed','passed'].includes(v)) return 'ok';
+  if(['failed'].includes(v)) return 'bad';
+  if(['incomplete','browsed'].includes(v)) return 'warn';
+  return '';
+}
+function renderBoard(){
+  const s = currentSub(); if(!s) return;
+  const d = s.data;
+  $('sbStatus').textContent = d.status; $('sbStatus').className = 'v '+statusClass(d.status);
+  $('sbSuccess').textContent = d.success; $('sbSuccess').className = 'v '+statusClass(d.success);
+  $('sbScore').textContent = fmtScore(d);
+  $('sbTime').textContent = fmtTime(d);
+  renderRoster();
+  renderPopup();
+}
+
+/* ---------------- popup scoreboard window ---------------- */
+function renderPopup(){
+  if(!popup || popup.closed) return;
+  const s = currentSub(); if(!s) return;
+  const d = s.data;
+  const doc = popup.document;
+  doc.title = 'Scoreboard — '+s.name+' '+s.surname;
+  doc.body.innerHTML =
+    '<div class="head"><h1>Scoreboard</h1><div class="sub">'+esc(s.name)+' '+esc(s.surname)+' · '+esc(s.number)+'</div><div class="sub topic">'+esc(s.topic)+'</div></div>'+
+    '<div class="row"><span>Status</span><b class="'+statusClass(d.status)+'">'+esc(d.status)+'</b></div>'+
+    '<div class="row"><span>Success</span><b class="'+statusClass(d.success)+'">'+esc(d.success)+'</b></div>'+
+    '<div class="row"><span>Score</span><b>'+esc(fmtScore(d))+'</b></div>'+
+    '<div class="row"><span>Time in course</span><b>'+fmtTime(d)+'</b></div>'+
+    '<div class="foot">Live view · results in memory only</div>';
+}
+function openPopup(){
+  popup = window.open('', 'scormScoreboard', 'width=420,height=460');
+  if(!popup){ setStatus('The scoreboard window was blocked by the browser — allow pop-ups for this site and try again.', true); return; }
+  const doc = popup.document;
+  doc.head.innerHTML = '<meta charset="utf-8"><style>'+
+    'body{font-family:"IBM Plex Sans",system-ui,sans-serif;background:#101A24;color:#fff;margin:0;padding:24px}'+
+    '.head{border-bottom:2px solid #2B4FD8;padding-bottom:12px;margin-bottom:16px}'+
+    'h1{font-size:20px;margin:0 0 4px}'+
+    '.sub{font-family:monospace;font-size:12px;opacity:.7}.sub.topic{opacity:.9;font-family:inherit;font-size:13px;margin-top:2px}'+
+    '.row{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid #24303c;font-size:14px}'+
+    '.row b{font-family:monospace;font-size:18px}'+
+    '.ok{color:#5BD69A}.bad{color:#FF7A66}.warn{color:#F2B265}'+
+    '.foot{margin-top:16px;font-size:11px;opacity:.5}'+
+    '</style>';
+  renderPopup();
+}
+
+/* ---------------- roster ---------------- */
+function renderRoster(){
+  const roster = $('roster');
+  $('rosterEmpty').style.display = submissions.length ? 'none' : 'block';
+  $('rosterCount').textContent = submissions.length + (submissions.length===1?' on record':' on record');
+  roster.innerHTML = '';
+  submissions.forEach(s => {
+    const d = s.data;
+    const card = document.createElement('article');
+    card.className = 'card' + (s.id===activeId ? ' active' : '');
+    card.innerHTML =
+      '<div class="who">'+esc(s.name)+' '+esc(s.surname)+'</div>'+
+      '<div class="stamp">'+esc(s.number)+'</div>'+
+      '<div class="topic">'+esc(s.topic)+'</div>'+
+      '<div class="meta">'+
+        '<span>status <b>'+esc(d.status)+'</b></span>'+
+        '<span>score <b>'+esc(fmtScore(d))+'</b></span>'+
+        '<span>file <b>'+esc(s.fileName)+'</b></span>'+
+      '</div>'+
+      '<div class="actions"></div>';
+    const actions = card.querySelector('.actions');
+    const openBtn = document.createElement('button');
+    openBtn.className = 'btn btn-ghost';
+    openBtn.textContent = s.id===activeId ? 'Now playing' : 'Open course';
+    openBtn.disabled = s.id===activeId;
+    openBtn.addEventListener('click', () => launchSubmission(s.id));
+    actions.appendChild(openBtn);
+    roster.appendChild(card);
+  });
+}
+
+/* ---------------- launch / close ---------------- */
+function launchSubmission(id){
+  const s = submissions.find(x => x.id===id); if(!s) return;
+  activeId = id;
+  window.__SCORM_FILE_MAP__ = s.files;   // used by the injected runtime patch
+  $('pName').textContent = s.name+' '+s.surname+' — '+s.topic;
+  $('pNum').textContent = s.number;
+  $('playerWrap').style.display = 'block';
+  $('sbLog').textContent = s.log.length ? s.log.slice(-40).join('\n') : 'Waiting for the course to talk to the LMS…';
+  $('scormFrame').src = s.launch;
+  renderBoard();
+  clearInterval(clockTimer);
+  clockTimer = setInterval(() => { const c=currentSub(); if(c&&c.data.startedAt){$('sbTime').textContent=fmtTime(c.data); renderPopup();} }, 1000);
+  $('playerWrap').scrollIntoView({behavior:'smooth', block:'start'});
+}
+$('closeBtn').addEventListener('click', () => {
+  $('scormFrame').src = 'about:blank';
+  $('playerWrap').style.display = 'none';
+  clearInterval(clockTimer);
+  activeId = null; renderRoster();
+});
+$('popoutBtn').addEventListener('click', openPopup);
+
+/* ---------------- form handling ---------------- */
+let pickedFile = null;
+const dz = $('dropzone'), fi = $('fileInput');
+dz.addEventListener('click', () => fi.click());
+dz.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){e.preventDefault(); fi.click();} });
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('hasfile'); });
+dz.addEventListener('dragleave', () => { if(!pickedFile) dz.classList.remove('hasfile'); });
+dz.addEventListener('drop', e => { e.preventDefault(); if(e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]); });
+fi.addEventListener('change', () => { if(fi.files.length) setFile(fi.files[0]); });
+
+function setFile(f){
+  if(!/\.zip$/i.test(f.name)){ setFormError('Please upload a .zip file — export your course as a SCORM package first.'); return; }
+  pickedFile = f;
+  dz.classList.add('hasfile');
+  $('dzText').textContent = f.name;
+  $('dzMeta').textContent = (f.size/1024/1024).toFixed(1)+' MB · ready to submit';
+  setFormError('');
+}
+function setFormError(msg){
+  const el = $('formError');
+  el.textContent = msg; el.style.display = msg ? 'block' : 'none';
+}
+function setStatus(msg, isErr){
+  const el = $('status');
+  el.textContent = msg; el.className = 'status'+(isErr?' err':'');
+  el.style.display = msg ? 'block' : 'none';
+}
+
+$('submitBtn').addEventListener('click', async () => {
+  const fields = {name:$('fName'), surname:$('fSurname'), number:$('fNumber'), topic:$('fTopic')};
+  let ok = true;
+  for(const k in fields){
+    const bad = !fields[k].value.trim();
+    fields[k].classList.toggle('invalid', bad);
+    if(bad) ok = false;
+  }
+  if(!ok){ setFormError('Please complete every field — name, surname, student number and topic are all required.'); return; }
+  if(!pickedFile){ setFormError('A SCORM .zip package is required before you can submit.'); return; }
+  setFormError('');
+  const btn = $('submitBtn');
+  btn.disabled = true; btn.textContent = 'Unpacking course…';
+  setStatus('Reading '+pickedFile.name+'…');
+  try{
+    const pkg = await loadPackage(pickedFile);
+    const sub = {
+      id: 'sub-'+Date.now(),
+      name: fields.name.value.trim(),
+      surname: fields.surname.value.trim(),
+      number: fields.number.value.trim(),
+      topic: fields.topic.value.trim(),
+      fileName: pickedFile.name,
+      files: pkg.files, launch: pkg.launch,
+      data: freshData(), log: []
+    };
+    submissions.push(sub);
+    setStatus('Launched from '+pkg.launchHref);
+    // reset form
+    for(const k in fields){ fields[k].value=''; }
+    pickedFile = null; fi.value = '';
+    dz.classList.remove('hasfile');
+    $('dzText').textContent = 'Click or drop your .zip here';
+    $('dzMeta').textContent = 'SCORM 1.2 or SCORM 2004 · exported as a zip';
+    launchSubmission(sub.id);
+  }catch(err){
+    console.error(err);
+    setStatus('Could not open the package: '+err.message, true);
+  }
+  btn.disabled = false; btn.textContent = 'Add submission & launch course';
+});
+
+renderRoster();
+})();
+</script>
+</body>
+</html>
